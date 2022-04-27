@@ -1,5 +1,5 @@
 # Project 1 Research Modeling: Exploring Effects of Income and Social Class on Individual Happiness
-## *By Freda Qifei Yuan*
+*By Freda Qifei Yuan*
 
 ## Description
 ### Research Question
