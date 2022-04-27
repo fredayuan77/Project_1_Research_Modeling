@@ -1,0 +1,435 @@
+---
+title: "DA final project code"
+author: "Qifei Yuan"
+date: "12/11/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data Preprocessing
+```{r import library}
+library(plyr)
+library(foreign)
+library(ggplot2)
+library(psych)
+library(ordinal)
+
+```
+
+```{r preprocessing}
+# read Stata file
+
+df_full <- read.dta("/Users/freda/Desktop/Final 加油鸭/DA/Data set/GSS2018.dta")
+
+# get rid of all missing values
+df <- df_full[,c('happy','class',"finrela", 'age','income16','sex','race','educ','wrkstat','health','degree','relig')]
+
+df <- na.omit(df)
+```
+
+### Dependent Variable: encoded into numerical
+* 1: not too happy
+* 2 pretty happy
+* 3: very happy
+Don't know coded into missing value
+```{r recode Y missing value}
+#recode "happy": convert don't know, NA into missing values
+df$happy = as.character(df$happy)
+df$happy[df$happy== 'DK'] <-NA
+df$happy[df$happy=='IAP'] <-NA
+df$happy[df$happy=='NA'] <-NA
+
+#convert character to numeric type
+# df$happy[df$happy == 'not too happy'] <- 1
+# df$happy[df$happy == 'pretty happy'] <- 2
+# df$happy[df$happy == 'very happy'] <- 3
+# df$happy = as.factor(df$happy)
+
+#describe(df$happy)
+```
+
+```{r }
+# happy2 = 1 if very happy
+df$happy2 <- df$happy
+df$happy2[df$happy=='very happy'] <- 1
+df$happy2[df$happy=='pretty happy'] <- NA
+df$happy2[df$happy=='not too happy'] <- 0
+
+df$happy2 = as.factor(df$happy2)
+summary(df$happy2)
+```
+
+
+## Recode independent variables:
+
+### (1) ln_income: natural log of income midpoints
+
+```{r recode income}
+# recode "income": take midpoint + 1.5 times in upper limit
+# get rid of missing values: start from rincom16 
+
+df$income16 = as.character(df$income16)
+df$income16[df$income16== 'dk'] <-NA
+df$income16[df$income16=='IAP'] <-NA
+df$income16[df$income16=='na'] <-NA
+df$income16[df$income16=='refused'] <-NA
+
+df$income16 = as.factor(df$income16)
+summary(df$income16)
+
+# create "income" (numeric), coded into midpoint
+df$income = as.character(df$income16)
+
+df$income[df$income == 'under $1 000'] <- mean(c(0,1000))
+df$income[df$income == '$1 000 to 2 999'] <- mean(c(1000,2999))
+df$income[df$income == '$3 000 to 3 999'] <- mean(c(3000,3999))
+df$income[df$income == '$4 000 to 4 999'] <- mean(c(4000,4999))
+df$income[df$income == '$5 000 to 5 999'] <- mean(c(5000,5999))
+df$income[df$income == '$6 000 to 6 999'] <- mean(c(6000,6999))
+df$income[df$income == '$7 000 to 7 999'] <- mean(c(7000,7999))
+df$income[df$income == '$8 000 to 9 999'] <- mean(c(8000,9999))
+df$income[df$income == '$10000 to 12499'] <- mean(c(10000,12499))
+df$income[df$income == '$12500 to 14999'] <- mean(c(12500,14999))
+df$income[df$income == '$15000 to 17499'] <- mean(c(15000,17499))
+df$income[df$income == '$17500 to 19999'] <- mean(c(17500,19999))
+df$income[df$income == '$20000 to 22499'] <- mean(c(20000,22499))
+df$income[df$income == '$22500 to 24999'] <- mean(c(22500,24999))
+df$income[df$income == '$25000 to 29999'] <- mean(c(25000,29999))
+df$income[df$income == '$30000 to 34999'] <- mean(c(30000,34999))
+df$income[df$income == '$35000 to 39999'] <- mean(c(35000,39999))
+df$income[df$income == '$40000 to 49999'] <- mean(c(40000,49999))
+df$income[df$income == '$50000 to 59999'] <- mean(c(50000,59999))
+df$income[df$income == '$60000 to 74999'] <- mean(c(60000,74999))
+df$income[df$income == '$75000 to $89999'] <- mean(c(75000,89999))
+df$income[df$income == '$90000 to $109999'] <- mean(c(90000,109999))
+df$income[df$income == '$110000 to $129999'] <- mean(c(110000,129999))
+df$income[df$income == '$130000 to $149999'] <- mean(c(130000,149999))
+df$income[df$income == '$150000 to $169999'] <- mean(c(150000,169999))
+df$income[df$income == '$170000 or over'] <- 170000*1.5
+
+df$income = as.numeric(df$income)
+describe(df$income)
+
+table(df$sex)
+
+skew(df$income)
+kurtosis(df$income)
+```
+
+# distribution of numeric income midpoint 
+```{r}
+p = ggplot(data=df, aes(df$income)) + 
+  geom_histogram(bins = 40)
+p
+```
+
+```{r}
+# convert to natural log of income
+df$ln_income = log(df$income)
+
+p = ggplot(data=df, aes(df$ln_income)) + 
+  geom_histogram(bins = 40)
+p
+```
+
+
+```{r distribution of ln_income}
+describe(df$ln_income)
+```
+
+```{r distribution of income}
+describe(df$income)
+```
+
+### Controlled Variables:
+### (2) Sex (female): female = 1, male = 0 
+```{r recode X variables}
+#recode sex as "female"
+df$female = ifelse(df$sex=='female', 1, 0)
+```
+
+
+```{r recode married}
+#recode marital status
+# df$childs = ifelse(df$childs=='0', 0, 1)
+# summary(df$childs)
+```
+
+```{r recode "work status"}
+# recode work status
+df$employed = as.character(df$wrkstat)
+df$employed[df$wrkstat== 'DK'] <-NA
+df$employed[df$wrkstat=='IAP'] <-NA
+df$employed[df$wrkstat=='NA'] <-NA
+
+summary(df$wrkstat)
+
+# code working status into 3 new categories
+df$employed[df$wrkstat== 'working fulltime'] <- 1
+df$employed[df$wrkstat== 'working parttime'] <- 1
+df$employed[df$wrkstat=='keeping house'] <- 0 
+df$employed[df$wrkstat=='retired'] <- 0 
+df$employed[df$wrkstat=='school'] <- 0 
+df$employed[df$wrkstat=='other'] <- 0 
+df$employed[df$wrkstat=='temp not working'] <- 0 
+df$employed[df$wrkstat=='unempl, laid off'] <- 0 
+
+df$employed = as.numeric(df$employed)
+summary(df$employed)
+```
+
+```{r}
+# df$work = as.character(df$wrkstat)
+# df$work[df$wrkstat== 'DK'] <-NA
+# df$work[df$wrkstat=='IAP'] <-NA
+# df$work[df$wrkstat=='NA'] <-NA
+# 
+# # code working status into 3 new categories
+# df$work[df$wrkstat== 'working fulltime'] <- "full time"
+# df$work[df$wrkstat== 'working parttime'] <- "full time"
+# df$work[df$wrkstat=='keeping house'] <- "other"
+# df$work[df$wrkstat=='retired'] <-"other"
+# df$work[df$wrkstat=='school'] <-"other"
+# df$work[df$wrkstat=='other'] <-"other"
+# df$work[df$wrkstat=='temp not working'] <- "temp unemployed"
+# df$work[df$wrkstat=='unempl, laid off'] <- "longterm unemployed"
+# 
+# df$work = as.factor(df$work)
+# summary(df$work)
+``` 
+    
+```{r recode health}
+df$health2 = as.character(df$health)
+
+# code working status into 3 new categories
+df$health2[df$health== 'excellent'] <- "good"
+df$health2[df$health== 'good'] <- "good"
+df$health2[df$health=='fair'] <- "bad"
+df$health2[df$health=='poor'] <-"bad"
+df$health2 = as.factor(df$health2)
+
+summary(df$health2)
+
+
+```
+
+```{r recode finrela}
+df$finrela = as.character(df$finrela)
+df$finrela[df$finrela== 'DK'] <-NA
+df$finrela[df$finrela=='IAP'] <-NA
+df$finrela[df$finrela=='NA'] <-NA
+df$finrela = as.factor(df$finrela)
+
+
+df$finrela <- factor(df$finrela, levels = c('far below average','below average','average','above average','far above average'))
+summary(df$finrela)
+``` 
+
+
+```{r recode race}
+#recode race
+df$white <- ifelse(df$race=='white', 1, 0)
+```
+
+```{r recode religion}
+#recode religion
+df$relig <- ifelse(df$relig=='none', 0, 1)
+summary(df$relig)
+```
+
+## visualize relationship
+```{r distribution of Y: happy}
+summary(df$happy)
+prop.table(table(df$happy)) 
+```
+
+### Boxplot: happy vs. ln_income
+```{r boxplot}
+                 
+p1= ggplot(df, aes(x=factor(happy), y=ln_income, fill=factor(happy))) + 
+    geom_boxplot(alpha=0.3) +
+    # geom_jitter() +
+    scale_fill_brewer(palette="Dark2")                 
+
+p1                
+```
+
+
+
+
+
+
+
+```{r}
+#recode happy
+df$happy.num <- df$happy
+df$happy.num[df$happy == 'not too happy'] <- 1
+df$happy.num[df$happy == 'pretty happy'] <- 2
+df$happy.num[df$happy == 'very happy'] <- 3
+# df$happy.num = as.factor(df$happy.num)
+
+#describe(df$happy)
+
+
+df$happy.new <- factor(df$happy.num,
+                       levels = 1:3,
+                        labels = c("not too happy", "pretty happy", "very happy"),
+                         ordered = TRUE)
+table(df$happy.new)
+
+table(df$happy)
+```
+
+```{r recode degree}
+df$degree2 = as.character(df$degree)
+df$degree2[df$degree2 == 'lt high school'] <- 'no college'
+df$degree2[df$degree2 == 'high school'] <- 'no college'
+df$degree2[df$degree2 == 'junior college'] <- 'college'
+df$degree2[df$degree2 == 'bachelor'] <- 'college'
+df$degree2[df$degree2 == 'graduate'] <- 'college'
+df$degree2 = as.factor(df$degree2)
+
+summary(df$degree2)
+``` 
+
+```{r descriptive }
+
+describe(df)
+
+library(pastecs)
+sub <-df[,c(as.numeric("happy"),"class", "age")]
+stat.desc(sub)
+
+``` 
+
+
+
+
+```{r model 1}
+library(stargazer)
+# linear model: should be bad
+#income significant, educ not
+df$agesq = df$age^2
+
+# first, initial model:
+
+linear1 = lm(happy.num ~ ln_income + educ + age + female + white + employed + health2 + relig, data=df) 
+summary(linear1) 
+
+linear2 = lm(happy.num ~ class + educ + age + female + white + employed + health2 + relig, data=df) 
+summary(linear2) 
+
+linear3 = lm(happy.num ~ finrela + educ + age + female + white + employed + health2 + relig, data=df) 
+summary(linear3) 
+
+
+stargazer(linear1,linear2,linear3, type = 'html', out = "linear reg.html", title = "Initial Linear Models")
+
+# ordinal model 
+df <- within(df, finrela <- relevel(finrela, ref = 1))
+
+lm1 = clm(factor(happy) ~ ln_income + educ + wrkstat  + age + female + white + health2 + relig, data=df) 
+summary(lm1) 
+
+lm2 = clm(factor(happy) ~ class + educ +  age + female + white +  wrkstat + health2 + relig, data=df) 
+summary(lm2)
+
+lm3 = clm(factor(happy) ~  finrela + wrkstat + educ + age + female + white + health2 + relig, data=df) 
+summary(lm3) 
+
+
+stargazer(lm1,lm2,lm3, type = 'html', out = "regression 2.html", title = "test")
+
+
+# intermediate steps: lots of interaction, bad
+lm3 = clm(factor(happy) ~ ln_income * educ + age + female + white  + ln_income *employed + ln_income*health + relig, data=df) 
+summary(lm3) 
+
+# binary logistic: only happy vs. unhappy
+lm4 = glm(factor(happy2) ~ ln_income + educ + age + female + wrkstat + health2 + white + relig, df, family=binomial)
+summary(lm4)
+
+# improved: ordinal, sig, separate work status -> now show employment 
+
+lm3= clm(factor(happy) ~ ln_income + degree +  age + female + white + work + health + relig, data=df)
+summary(lm3) 
+
+lm_test = clm(factor(happy) ~ ln_income + degree +  age + female + white + wrkstat + health2 + relig, data=df,subset = (age > 20))
+summary(lm_test) 
+
+# good model!! 
+lm_final = clm(factor(happy) ~ ln_income + degree +  age+ female + white + wrkstat + health2 + relig, data=df,subset = (age > 20 ))
+summary(lm_final) 
+
+
+lm_test = clm(factor(happy) ~ class +degree +  age + female + white + wrkstat + health2 + relig, data=df,subset = (age > 20))
+summary(lm_test) 
+
+```
+
+
+## Correlation 
+```{r check correlation}
+# happy vs. income
+p1= ggplot(df, aes(x=factor(happy), y = ln_income, fill=factor(happy))) + 
+    geom_boxplot(alpha=0.3) +
+    # geom_jitter() +
+    #facet_grid(~degree) +
+    scale_fill_brewer(palette="Dark2")                 
+
+p1    
+
+
+p2= ggplot(df, aes(x=finrela, y=ln_income, fill=finrela)) + 
+    geom_boxplot(alpha=0.3) +
+    # geom_jitter() +
+    scale_fill_brewer(palette="Dark2")      
+p2
+
+
+
+p2= ggplot(df, aes(x=factor(happy), y = ln_income, fill=factor(happy))) + 
+    geom_boxplot(alpha=0.3) +
+    # geom_jitter() +
+    #facet_grid(~degree) +
+    scale_fill_brewer(palette="Dark2")                 
+
+p2    
+
+
+
+
+p3= ggplot(df, 
+       aes(x = class, 
+           fill = finrela)) + 
+  geom_bar(position = "dodge")
+p3
+``` 
+
+```{r }
+# heatmap
+df$happy.num <- as.numeric(df$happy.num)
+summary(df$happy.num)
+
+df.num <- df[,c('happy.num','age','ln_income','educ','white','employed','female','relig')]
+matrix.data = as.matrix(df.num)
+heatmap(matrix.data, scale="column")
+
+
+
+## heatmap 2
+df$class.num = as.numeric(df$class)
+df$finrela.num = as.numeric(df$finrela)
+df$health2.num = as.numeric(df$health2)
+
+df.num = df[,c('happy.num','class.num','finrela.num','health2.num',"employed",'ln_income')]
+library(ggcorrplot)
+corr <- round(cor(df.num), 2)
+corr
+
+
+ggcorrplot(corr)
+```
